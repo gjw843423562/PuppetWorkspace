@@ -42,6 +42,21 @@ if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 
+def hidden_subprocess_kwargs() -> Dict[str, object]:
+    if os.name != "nt":
+        return {}
+    kwargs: Dict[str, object] = {}
+    if hasattr(subprocess, "CREATE_NO_WINDOW"):
+        kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+    startupinfo_class = getattr(subprocess, "STARTUPINFO", None)
+    if startupinfo_class and hasattr(subprocess, "STARTF_USESHOWWINDOW"):
+        startupinfo = startupinfo_class()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = 0
+        kwargs["startupinfo"] = startupinfo
+    return kwargs
+
+
 @dataclass
 class RepoConfig:
     id: str
@@ -188,6 +203,7 @@ def run_git(repo: Path, args: Sequence[str]) -> Tuple[int, str, str]:
         text=True,
         encoding="utf-8",
         errors="replace",
+        **hidden_subprocess_kwargs(),
     )
     return proc.returncode, (proc.stdout or "").strip(), (proc.stderr or "").strip()
 
