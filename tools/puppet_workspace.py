@@ -74,6 +74,11 @@ def now_text() -> str:
 
 
 def workspace_root_from_script() -> Path:
+    if getattr(sys, "frozen", False):
+        exe_dir = Path(sys.executable).resolve().parent
+        if exe_dir.name.lower() == "dist":
+            return exe_dir.parent
+        return exe_dir
     return Path(__file__).resolve().parents[1]
 
 
@@ -596,6 +601,9 @@ def resolve_args(args: argparse.Namespace) -> Tuple[Path, Path, Path]:
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = build_parser()
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if not argv:
+        argv = ["ui"]
     args = parser.parse_args(argv)
     root, config_path, ccswitch_root = resolve_args(args)
     if args.command == "ui":
