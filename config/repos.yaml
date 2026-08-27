@@ -1,0 +1,9 @@
+version: 1
+repositories:
+  - id: work-vault
+    label: Work Vault
+    path: skill-repos/work-vault
+    remote: https://github.com/gjw843423562/puppet-vault.git
+    branch: main
+    enabled: true
+

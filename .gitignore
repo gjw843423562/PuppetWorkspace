@@ -1,0 +1,17 @@
+# 技能仓库由各自 Git 管理，外层工具仓不跟踪正文
+skill-repos/**
+
+# 本机运行态
+state/**
+logs/**
+backups/**
+
+# Python 缓存
+__pycache__/
+**/__pycache__/
+*.pyc
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
