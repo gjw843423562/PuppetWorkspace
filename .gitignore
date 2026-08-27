@@ -15,6 +15,7 @@ __pycache__/
 build/**
 dist/**
 *.spec
+PuppetWorkspace.exe
 
 # Git 提交临时文件
 .cursor_commit_msg.txt

@@ -23,7 +23,7 @@ tools\puppet_workspace.cmd ui
 
 ## 窗口启动
 
-- 双击 `dist\PuppetWorkspace.exe`：打包后的正式窗口工具。
+- 双击 `PuppetWorkspace.exe`：打包后的正式窗口工具，位于仓库最外层。
 - 双击 `tools\puppet_workspace_ui.cmd`：打开窗口，保留控制台，便于看错误。
 - 双击 `tools\puppet_workspace_ui.vbs`：静默打开窗口，不显示黑色控制台。
 - 命令行启动：`tools\puppet_workspace.cmd ui`。
@@ -34,7 +34,7 @@ tools\puppet_workspace.cmd ui
 tools\build_exe.cmd
 ```
 
-产物输出到 `dist\PuppetWorkspace.exe`。EXE 放在 `dist` 下运行时，会自动把上一级目录识别为 `puppet-workspace` 工作区根。
+产物先输出到 `dist\PuppetWorkspace.exe`，随后自动复制到最外层 `PuppetWorkspace.exe`。EXE 放在仓库最外层或 `dist` 下运行时，都会自动识别 `puppet-workspace` 工作区根。
 
 ## 设计边界
 

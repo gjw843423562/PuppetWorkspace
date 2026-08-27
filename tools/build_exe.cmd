@@ -16,5 +16,6 @@ python3 -m PyInstaller ^
   --workpath build ^
   --specpath build ^
   tools\puppet_workspace.py
+if errorlevel 1 exit /b %ERRORLEVEL%
+copy /Y "dist\PuppetWorkspace.exe" "PuppetWorkspace.exe" >nul
 exit /b %ERRORLEVEL%
-

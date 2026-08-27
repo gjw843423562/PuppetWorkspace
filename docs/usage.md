@@ -8,7 +8,7 @@
 
 第一版窗口由 Python `tkinter` 实现，入口在 `tools/`：
 
-- `dist\PuppetWorkspace.exe`：打包后的正式窗口工具，双击即可打开。
+- `PuppetWorkspace.exe`：打包后的正式窗口工具，位于仓库最外层，双击即可打开。
 - `puppet_workspace_ui.cmd`：适合排查问题，启动窗口时保留控制台。
 - `puppet_workspace_ui.vbs`：适合日常使用，启动窗口时不显示控制台。
 - `puppet_workspace.cmd ui`：命令行等价入口。
@@ -23,7 +23,7 @@
 tools\build_exe.cmd
 ```
 
-脚本使用 PyInstaller 生成单文件窗口程序，输出到 `dist\PuppetWorkspace.exe`。`build/`、`dist/` 和 `.spec` 文件属于本机打包产物，不进入外层工具仓 Git。
+脚本使用 PyInstaller 生成单文件窗口程序，先输出到 `dist\PuppetWorkspace.exe`，再复制到最外层 `PuppetWorkspace.exe`。`build/`、`dist/`、`PuppetWorkspace.exe` 和 `.spec` 文件属于本机打包产物，不进入外层工具仓 Git。
 
 ## ccSwitch 导入
 
