@@ -12,6 +12,8 @@ python3 -m PyInstaller ^
   --onefile ^
   --windowed ^
   --name PuppetWorkspace ^
+  --collect-submodules pystray ^
+  --collect-submodules PIL ^
   --distpath dist ^
   --workpath build ^
   --specpath build ^

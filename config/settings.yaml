@@ -1,0 +1,5 @@
+version: 1
+refresh_interval_minutes: 180
+close_to_tray: true
+notifications: true
+start_minimized_to_tray: true
