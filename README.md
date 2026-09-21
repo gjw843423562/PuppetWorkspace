@@ -1,69 +1,65 @@
-# puppet-workspace
+# Puppet 工具箱与技能库 (puppet-workspace)
 
-`puppet-workspace` 是 Puppet 个人技能库的外层工具仓库。它只管理工具、配置、图标和文档；实际技能库放在 `skill-repos/` 下，由各自 Git 仓库独立管理。
+puppet-workspace 是 Puppet 个人技能库与外层辅助工具包的总控仓库。它负责统一管理 Puppet 技能库、快捷小工具、配置文件、图标图片资源及相关文档。
 
-## 目录
+---
 
-- `tools/`：命令行、ccSwitch 导入器、Git 管理器和 tkinter 管理窗口。
-- `config/repos.yaml`：登记多个技能仓库。
-- `skill-repos/`：本机技能仓库容器，外层 Git 忽略。
-- `assets/icons/`：本地图标资源。
-- `state/`、`logs/`、`backups/`：本机状态、日志和备份，外层 Git 忽略。
+## 📁 目录结构
 
-## 常用命令
+`	ext
+puppet-workspace/
+├── PuppetWorkspace.lnk   # 快捷启动入口（指向 dist/PuppetWorkspace.exe）
+├── README.md             # 本说明文档
+├── assets/               # 资源目录
+│   ├── icons/            # 界面图标资源 (.png)
+│   └── images/           # 工作空间美化图片与背景素材
+├── config/               # 配置文件
+│   └── repos.yaml        # 技能仓库登记表
+├── dist/                 # 应用程序编译打包输出目录
+│   └── PuppetWorkspace.exe
+├── skill-repos/          # 本机技能仓库容器（各 Git 仓库独立管理）
+├── tools/                # 常用辅助工具与源码
+│   ├── 快捷键工具/       # 键盘全局快捷键调起工具 (AutoHotKeyTool + tools.json)
+│   ├── build_exe.cmd     # EXE 打包脚本
+│   └── puppet_workspace*.py # GUI 与核心功能源码
+├── state/                # 运行状态数据（Git 已忽略）
+├── logs/                 # 运行日志（Git 已忽略）
+└── backups/              # 配置与技能备份（Git 已忽略）
+`
 
-```bat
+---
+
+## 🚀 启动方式
+
+- **快捷启动**：双击根目录下的 PuppetWorkspace.lnk 快捷方式。
+- **打包产物**：双击 dist\PuppetWorkspace.exe（直接启动，后台自动定位工作区）。
+- **命令行启动**：在终端运行 	ools\puppet_workspace.cmd ui。
+- **控制台调试启动**：双击 	ools\puppet_workspace_ui.cmd（保留控制台，便于排查日志）。
+- **快捷键小工具**：进入 	ools\快捷键工具\ 运行 AutoHotKeyTool.exe，可通过全局热键迅速调起常用工具。
+
+---
+
+## 🛠️ 常见操作
+
+`at
+:: 查看仓库状态
 tools\puppet_workspace.cmd status
+
+:: 同步技能到 AI (ccSwitch)
 tools\puppet_workspace.cmd import-ccswitch
-tools\puppet_workspace.cmd tray
-tools\puppet_workspace.cmd startup status
-tools\puppet_workspace.cmd startup enable
-tools\puppet_workspace.cmd startup disable
+
+:: 管理与更新技能仓库
 tools\puppet_workspace.cmd repo summary work-vault
 tools\puppet_workspace.cmd repo pull work-vault
-tools\puppet_workspace.cmd repo commit work-vault
 tools\puppet_workspace.cmd repo push work-vault
-tools\puppet_workspace.cmd repo add home-private-vault --remote https://example.invalid/home-private-vault.git
-tools\puppet_workspace.cmd ui
-```
 
-## 窗口启动
-
-- 双击 `PuppetWorkspace.exe`：打包后的正式窗口工具，位于仓库最外层。
-- `PuppetWorkspace.exe --tray`：静默启动到系统托盘，用于开机自启。
-- 双击 `tools\puppet_workspace_ui.cmd`：打开窗口，保留控制台，便于看错误。
-- 双击 `tools\puppet_workspace_ui.vbs`：静默打开窗口，不显示黑色控制台。
-- 命令行启动：`tools\puppet_workspace.cmd ui`。
-
-## 仓库管理与托盘
-
-- 窗口默认进入“总览”，只显示技能数、仓库状态、AI 同步状态和后台守护状态。
-- 左侧导航包含：总览、技能同步、技能仓库、AI 位置、备份恢复、设置、高级日志。
-- Git 的 HEAD、原始 JSON 和错误细节放在“高级日志”里，日常页面使用通俗状态文案。
-- 窗口支持新增、编辑、启用/禁用、删除仓库配置；删除配置不会删除技能仓库目录。
-- “备份恢复”页可打开或恢复最近的 AI 技能备份和配置备份，恢复前会二次确认。
-- 修改 `config/repos.yaml` 前会备份到 `backups/config/<timestamp>/repos.yaml`。
-- 后台刷新默认每 3 小时一次，可在窗口设置中调整为 1/3/6/12/24 小时。
-- 关闭窗口默认最小化到托盘；托盘菜单可显示窗口、检查状态、同步到 AI、打开工作区、切换开机自启和退出。
-- 开机自启通过当前用户 Startup 文件夹里的快捷方式实现，不写注册表。
-
-## 图标美化
-
-- 本地图标位于 `assets/icons/`，工具会优先加载同名 PNG。
-- 可以从 iconfont 下载统一风格图标后覆盖同名文件，不需要改代码。
-- 图标缺失时会自动降级为纯文字按钮。
-
-## 打包 EXE
-
-```bat
+:: 重新编译打包 EXE
 tools\build_exe.cmd
-```
+`
 
-产物先输出到 `dist\PuppetWorkspace.exe`，随后自动复制到最外层 `PuppetWorkspace.exe`。EXE 放在仓库最外层或 `dist` 下运行时，都会自动识别 `puppet-workspace` 工作区根。
+---
 
-## 设计边界
+## 🎨 界面与美化资源
 
-- `puppet-workspace` 不保存技能正文。
-- ccSwitch 只是运行态导入目标，不是正本。
-- 多个启用仓库合并导入时，出现同名 `puppet-*` 技能会停止导入并报告冲突。
-- Git 推送默认手动触发，避免草稿或敏感内容被自动发布。
+- **图标文件**：位于 ssets\icons\，工具会自动优先加载同名 PNG 图标。
+- **图片素材**：位于 ssets\images\，用于后续工作区视觉美化与背景更换。

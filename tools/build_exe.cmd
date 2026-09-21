@@ -1,4 +1,4 @@
-@echo off
+﻿@echo off
 setlocal
 chcp 65001 >nul
 set "SCRIPT_DIR=%~dp0"
@@ -19,5 +19,5 @@ python3 -m PyInstaller ^
   --specpath build ^
   tools\puppet_workspace.py
 if errorlevel 1 exit /b %ERRORLEVEL%
-copy /Y "dist\PuppetWorkspace.exe" "PuppetWorkspace.exe" >nul
+echo 打包成功！EXE 产物已输出至 dist\PuppetWorkspace.exe
 exit /b %ERRORLEVEL%
