@@ -20,6 +20,20 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 from puppet_workspace_support import (
+    OperationCoordinator,
+    SingleInstanceLock,
+    add_repo_alert_keys,
+    alert_keys_from_payload,
+    alert_text,
+    append_log,
+    conflict_names,
+    load_managed_targets,
+    now_text,
+    print_json,
+    save_managed_targets,
+    settings_to_dict,
+    status_to_dict,
+    write_json,
     WorkspaceSettings,
     backup_file,
     disable_startup,
@@ -78,8 +92,7 @@ class RepoStatus:
     refreshed_at: str
 
 
-def now_text() -> str:
-    return datetime.now(TZ).strftime("%Y%m%d-%H%M%S")
+
 
 
 def workspace_root_from_script() -> Path:
@@ -110,9 +123,7 @@ def backups_home(root: Path) -> Path:
     return Path(env).absolute() if env else root / "backups"
 
 
-def log_home(root: Path) -> Path:
-    env = os.environ.get("PUPPET_WORKSPACE_LOG_HOME")
-    return Path(env).absolute() if env else root / "logs"
+
 
 
 def strip_yaml_value(value: str) -> str:
@@ -471,17 +482,10 @@ def dir_hash(root: Path) -> str:
     return digest.hexdigest()
 
 
-def write_json(path: Path, payload: Dict[str, object]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def append_log(root: Path, action: str, payload: Dict[str, object]) -> None:
-    item = {"ts": datetime.now(TZ).isoformat(timespec="seconds"), "action": action, **payload}
-    log_path = log_home(root) / "puppet_workspace.jsonl"
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    with log_path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(item, ensure_ascii=False) + "\n")
+
+
 
 
 def backup_targets(root: Path, targets: List[Path], workspace_root: Path) -> Optional[Path]:
@@ -517,21 +521,50 @@ def restore_backup(root: Path, config_path: Path, ccswitch_root: Path, backup_ki
 def restore_ccswitch_backup(root: Path, ccswitch_root: Path, backup_path: Path) -> Dict[str, object]:
     ccswitch_root.mkdir(parents=True, exist_ok=True)
     sources = existing_puppet_targets(backup_path)
-    targets = existing_puppet_targets(ccswitch_root)
     ensure_safe_targets(sources, backup_path)
-    ensure_safe_targets(targets, ccswitch_root)
-    current_backup = backup_targets(ccswitch_root, targets, root)
-    for target in targets:
-        safe_rmtree(target, ccswitch_root)
-    copied, mismatches = copy_skills_to_target({path.name: SkillSource(path.name, "backup", path) for path in sources}, ccswitch_root)
+
+    state_dir = state_home(root)
+    managed_set = load_managed_targets(state_dir)
+    existing_targets = existing_puppet_targets(ccswitch_root)
+    if not managed_set and existing_targets:
+        managed_set = {t.name for t in existing_targets}
+
+    targets_to_remove = [t for t in existing_targets if t.name in managed_set or t.name in {s.name for s in sources}]
+    ensure_safe_targets(targets_to_remove, ccswitch_root)
+    current_backup = backup_targets(ccswitch_root, targets_to_remove, root)
+
+    staging_dir = unique_child_dir(state_dir / "staging", now_text())
+    try:
+        backup_skills = {path.name: SkillSource(path.name, "backup", path) for path in sources}
+        copied, mismatches = copy_skills_to_target(backup_skills, staging_dir)
+        if mismatches:
+            shutil.rmtree(str(staging_dir), ignore_errors=True)
+            return {
+                "ok": False,
+                "status": "hash_mismatch",
+                "kind": "ccswitch",
+                "source": str(backup_path),
+                "mismatches": mismatches,
+            }
+
+        for target in targets_to_remove:
+            safe_rmtree(target, ccswitch_root)
+        for item in staging_dir.iterdir():
+            if item.is_dir():
+                shutil.move(str(item), str(ccswitch_root / item.name))
+    finally:
+        if staging_dir.exists():
+            shutil.rmtree(str(staging_dir), ignore_errors=True)
+
+    save_managed_targets(state_dir, {s.name for s in sources})
     return {
-        "ok": not mismatches,
-        "status": "restored" if not mismatches else "hash_mismatch",
+        "ok": True,
+        "status": "restored",
         "kind": "ccswitch",
         "source": str(backup_path),
         "current_backup": str(current_backup) if current_backup else "",
         "copied": copied,
-        "mismatches": mismatches,
+        "mismatches": [],
     }
 
 
@@ -555,14 +588,53 @@ def import_ccswitch(root: Path, config_path: Path, ccswitch_root: Path) -> Dict[
     skills, conflicts = collect_skills(repos)
     if conflicts:
         return conflict_result(root, conflicts)
+    if not skills:
+        result = {
+            "ok": False,
+            "status": "zero_source",
+            "error": "启用仓库解析出 0 个可用技能，放弃同步以防清空目标",
+            "target": str(ccswitch_root),
+        }
+        append_log(root, "import-ccswitch", result)
+        return result
+
     ccswitch_root.mkdir(parents=True, exist_ok=True)
-    old_targets = existing_puppet_targets(ccswitch_root)
-    ensure_safe_targets(old_targets, ccswitch_root)
-    backup_path = backup_targets(ccswitch_root, old_targets, root)
-    for target in old_targets:
-        safe_rmtree(target, ccswitch_root)
-    copied, mismatches = copy_skills_to_target(skills, ccswitch_root)
-    return import_success(root, ccswitch_root, copied, mismatches, backup_path)
+    state_dir = state_home(root)
+    managed_set = load_managed_targets(state_dir)
+    existing_targets = existing_puppet_targets(ccswitch_root)
+    if not managed_set and existing_targets:
+        managed_set = {t.name for t in existing_targets}
+
+    targets_to_remove = [t for t in existing_targets if t.name in managed_set or t.name in skills]
+    ensure_safe_targets(targets_to_remove, ccswitch_root)
+    backup_path = backup_targets(ccswitch_root, targets_to_remove, root)
+
+    staging_dir = unique_child_dir(state_dir / "staging", now_text())
+    try:
+        copied, mismatches = copy_skills_to_target(skills, staging_dir)
+        if mismatches:
+            shutil.rmtree(str(staging_dir), ignore_errors=True)
+            result = {
+                "ok": False,
+                "status": "hash_mismatch",
+                "error": "暂存区哈希校验失败",
+                "mismatches": mismatches,
+                "target": str(ccswitch_root),
+            }
+            append_log(root, "import-ccswitch", result)
+            return result
+
+        for target in targets_to_remove:
+            safe_rmtree(target, ccswitch_root)
+        for item in staging_dir.iterdir():
+            if item.is_dir():
+                shutil.move(str(item), str(ccswitch_root / item.name))
+    finally:
+        if staging_dir.exists():
+            shutil.rmtree(str(staging_dir), ignore_errors=True)
+
+    save_managed_targets(state_dir, set(skills.keys()))
+    return import_success(root, ccswitch_root, copied, [], backup_path)
 
 
 def conflict_result(root: Path, conflicts: Dict[str, List[SkillSource]]) -> Dict[str, object]:
@@ -661,69 +733,6 @@ def status_payload(root: Path, config_path: Path, ccswitch_root: Path) -> Dict[s
         "settings": settings_to_dict(settings),
         "startup": startup_status(root),
     }
-
-
-def status_to_dict(status: RepoStatus) -> Dict[str, object]:
-    return {
-        "id": status.repo.id,
-        "label": status.repo.label,
-        "path": str(status.repo.path),
-        "enabled": status.repo.enabled,
-        "exists": status.exists,
-        "branch": status.branch,
-        "head": status.head,
-        "dirty": status.dirty,
-        "dirty_count": status.dirty_count,
-        "ahead": status.ahead,
-        "behind": status.behind,
-        "remote": status.remote,
-        "error": status.error,
-        "refreshed_at": status.refreshed_at,
-    }
-
-
-def conflict_names(conflicts: Dict[str, List[SkillSource]]) -> Dict[str, List[str]]:
-    return {name: [item.repo_id for item in sources] for name, sources in conflicts.items()}
-
-
-def settings_to_dict(settings: WorkspaceSettings) -> Dict[str, object]:
-    return {
-        "refresh_interval_minutes": settings.refresh_interval_minutes,
-        "close_to_tray": settings.close_to_tray,
-        "notifications": settings.notifications,
-        "start_minimized_to_tray": settings.start_minimized_to_tray,
-    }
-
-
-def alert_keys_from_payload(payload: Dict[str, object]) -> Set[str]:
-    keys: Set[str] = set()
-    conflicts = payload.get("conflicts", {})
-    if isinstance(conflicts, dict) and conflicts:
-        keys.add("import-conflict:" + ",".join(sorted(conflicts.keys())))
-    for repo in payload.get("repos", []):
-        if isinstance(repo, dict):
-            add_repo_alert_keys(keys, repo)
-    return keys
-
-
-def add_repo_alert_keys(keys: Set[str], repo: Dict[str, object]) -> None:
-    repo_id = str(repo.get("id", ""))
-    if repo.get("error"):
-        keys.add(f"repo-error:{repo_id}:{repo.get('error')}")
-    if int(repo.get("dirty_count", 0) or 0) > 0:
-        keys.add(f"repo-dirty:{repo_id}:{repo.get('dirty_count')}")
-    if int(repo.get("ahead", 0) or 0) > 0:
-        keys.add(f"repo-ahead:{repo_id}:{repo.get('ahead')}")
-
-
-def alert_text(keys: Set[str]) -> str:
-    if not keys:
-        return "状态正常"
-    return "；".join(sorted(keys))
-
-
-def print_json(payload: Dict[str, object]) -> None:
-    print(json.dumps(payload, ensure_ascii=False, indent=2))
 
 
 def repo_config_from_args(root: Path, args: argparse.Namespace) -> RepoConfig:

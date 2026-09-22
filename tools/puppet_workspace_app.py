@@ -19,7 +19,8 @@ except Exception:  # pragma: no cover
     simpledialog = None
 
 from puppet_workspace_actions import WorkspaceActions
-from puppet_workspace_core import load_settings, startup_status, status_payload
+from puppet_workspace_support import OperationCoordinator, SingleInstanceLock
+from puppet_workspace_core import load_settings, startup_status, status_payload, state_home
 from puppet_workspace_pages import (
     build_backups, build_logs, build_overview, build_repos, build_settings,
     build_sync, build_targets,
@@ -42,6 +43,11 @@ class PuppetWorkspaceApp(WorkspaceActions):
         self.current_page = "overview"
         self.payload: Dict[str, object] = {}
         self.exiting = False
+        self.coordinator = OperationCoordinator()
+        self.single_instance_lock = SingleInstanceLock(state_home(root) / "puppet_workspace.lock")
+        if not self.single_instance_lock.acquire():
+            messagebox.showwarning("实例运行中", "Puppet Workspace 已在运行中，请勿重复启动")
+            raise RuntimeError("Puppet Workspace 已在运行中")
         self.window = tk.Tk()
         configure_theme(self.window)
         self.window.title("Puppet Workspace")

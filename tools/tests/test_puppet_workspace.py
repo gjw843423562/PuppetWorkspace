@@ -19,6 +19,7 @@ puppet_workspace = importlib.util.module_from_spec(SPEC)
 assert SPEC and SPEC.loader
 sys.modules["puppet_workspace"] = puppet_workspace
 SPEC.loader.exec_module(puppet_workspace)
+import puppet_workspace_core
 import puppet_workspace_view
 import puppet_workspace_ui
 
@@ -182,6 +183,74 @@ class PuppetWorkspaceTests(unittest.TestCase):
 
     def test_old_ui_import_points_to_new_app(self) -> None:
         self.assertEqual(puppet_workspace_ui.PuppetWorkspaceApp.__module__, "puppet_workspace_app")
+
+    def test_zero_source_sync_aborts_without_wiping(self) -> None:
+        old = self.ccswitch / "puppet-existing"
+        old.mkdir(parents=True)
+        (old / "SKILL.md").write_text("existing", encoding="utf-8")
+        config = self.write_config("")
+        result = puppet_workspace.import_ccswitch(self.workspace, config, self.ccswitch)
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["status"], "zero_source")
+        self.assertTrue(old.exists())
+
+    def test_unmanaged_puppet_folder_is_protected(self) -> None:
+        self.make_repo("a", ["puppet-managed"])
+        unmanaged = self.ccswitch / "puppet-unmanaged"
+        unmanaged.mkdir(parents=True)
+        (unmanaged / "SKILL.md").write_text("unmanaged", encoding="utf-8")
+        config = self.write_config(
+            "  - id: a\n    label: A\n    path: skill-repos/a\n    remote: x\n    branch: main\n    enabled: true\n"
+        )
+        state_dir = self.workspace / "state"
+        puppet_workspace.save_managed_targets(state_dir, ["puppet-managed"])
+        result = puppet_workspace.import_ccswitch(self.workspace, config, self.ccswitch)
+        self.assertTrue(result["ok"])
+        self.assertTrue((self.ccswitch / "puppet-managed").exists())
+        self.assertTrue(unmanaged.exists())
+
+    def test_single_instance_lock(self) -> None:
+        lock_file = self.workspace / "state" / "puppet_workspace.lock"
+        lock1 = puppet_workspace.SingleInstanceLock(lock_file)
+        lock2 = puppet_workspace.SingleInstanceLock(lock_file)
+        self.assertTrue(lock1.acquire())
+        self.assertFalse(lock2.acquire())
+        lock1.release()
+        self.assertTrue(lock2.acquire())
+        lock2.release()
+
+    def test_operation_coordinator(self) -> None:
+        coord = puppet_workspace.OperationCoordinator()
+        self.assertTrue(coord.begin_op("sync"))
+        self.assertEqual(coord.active_op(), "sync")
+        self.assertFalse(coord.begin_op("git"))
+        coord.end_op()
+        self.assertIsNone(coord.active_op())
+        self.assertTrue(coord.begin_op("git"))
+        coord.end_op()
+
+    def test_atomic_sync_staging_failure_does_not_corrupt_target(self) -> None:
+        self.make_repo("a", ["puppet-one"])
+        old = self.ccswitch / "puppet-old"
+        old.mkdir(parents=True)
+        (old / "SKILL.md").write_text("old", encoding="utf-8")
+        config = self.write_config(
+            "  - id: a\n    label: A\n    path: skill-repos/a\n    remote: x\n    branch: main\n    enabled: true\n"
+        )
+        original_copy = puppet_workspace.copy_skills_to_target
+        def faulty_copy(skills, target):
+            copied, _ = original_copy(skills, target)
+            return copied, ["puppet-one"]
+        puppet_workspace_core.copy_skills_to_target = faulty_copy
+        try:
+            result = puppet_workspace.import_ccswitch(self.workspace, config, self.ccswitch)
+            self.assertFalse(result["ok"])
+            self.assertEqual(result["status"], "hash_mismatch")
+            self.assertTrue(old.exists())
+            self.assertFalse((self.ccswitch / 'puppet-one').exists())
+        finally:
+            puppet_workspace_core.copy_skills_to_target = original_copy
+
 
 
 if __name__ == "__main__":

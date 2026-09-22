@@ -191,15 +191,32 @@ class WorkspaceActions:
         return bool(startup_status(self.root_path)["enabled"])
 
     def run_worker(self, label: str, func) -> None:
+        coordinator = getattr(self, "coordinator", None)
+        if coordinator and not coordinator.begin_op(label):
+            active = coordinator.active_op() or "其他任务"
+            messagebox.showwarning("操作忙碌", f"当前正在执行 [{active}]，请稍后再试")
+            return
         self.status_text.set(label)
-        threading.Thread(target=lambda: self.finish_worker(func), daemon=True).start()
 
-    def finish_worker(self, func) -> None:
-        try:
-            result = func()
-            self.window.after(0, lambda: self.show_result(result))
-        except Exception as exc:
-            self.window.after(0, lambda: self.report_error("操作失败", exc))
+        def _target():
+            try:
+                res = func()
+                self.finish_worker(label, func, None, res)
+            except Exception as exc:
+                self.finish_worker(label, func, exc, None)
+            finally:
+                if coordinator:
+                    coordinator.end_op()
+
+        threading.Thread(target=_target, daemon=True).start()
+
+    def finish_worker(self, label: str, func, exc: Optional[Exception], result: object) -> None:
+        err = exc
+        res = result
+        if err is not None:
+            self.window.after(0, lambda: self.report_error("操作失败", err))
+        else:
+            self.window.after(0, lambda: self.show_result(res))
 
     def show_result(self, result: Dict[str, object]) -> None:
         self.write_log(json.dumps(result, ensure_ascii=False, indent=2))
@@ -244,8 +261,19 @@ class WorkspaceActions:
 
     def exit_app(self) -> None:
         self.exiting = True
-        self.tray.stop()
-        self.window.destroy()
+        coordinator = getattr(self, "coordinator", None)
+        if coordinator:
+            coordinator.wait_active_ops(5.0)
+        lock = getattr(self, "single_instance_lock", None)
+        if lock:
+            lock.release()
+        if getattr(self, "tray", None) and getattr(self, "tray_running", False):
+            try:
+                self.tray.stop()
+            except Exception:
+                pass
+        if getattr(self, "window", None):
+            self.window.destroy()
 
     def open_workspace(self) -> None:
         os.startfile(str(self.root_path))
