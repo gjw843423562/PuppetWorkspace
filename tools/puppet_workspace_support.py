@@ -373,6 +373,7 @@ def status_to_dict(status: object) -> Dict[str, object]:
         "ahead": status.ahead,
         "behind": status.behind,
         "remote": status.remote,
+        "local_only": not status.repo.remote,
         "error": status.error,
         "refreshed_at": status.refreshed_at,
     }

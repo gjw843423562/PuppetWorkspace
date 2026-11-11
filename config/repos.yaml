@@ -6,4 +6,9 @@ repositories:
     remote: https://github.com/gjw843423562/puppet-vault.git
     branch: main
     enabled: true
-
+  - id: sc
+    label: SC 公司技能（本地）
+    path: skill-repos/sc
+    remote:
+    branch: main
+    enabled: true

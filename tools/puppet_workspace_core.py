@@ -46,7 +46,7 @@ from puppet_workspace_support import (
 )
 
 TZ = timezone(timedelta(hours=8))
-SKILL_PREFIX = "puppet-"
+SKILL_PREFIX = ("puppet-", "sc-")
 DEFAULT_CONFIG = Path("config") / "repos.yaml"
 IGNORE_DIRS = {"__pycache__", ".git"}
 IGNORE_SUFFIXES = {".pyc"}
@@ -235,6 +235,26 @@ def validate_repo_path_for_save(repo: RepoConfig) -> None:
         raise ValueError(f"不是 Git 仓库: {repo.path}")
     if not repo.path.exists() and not repo.remote:
         raise ValueError("仓库目录不存在时必须填写 remote URL 以便 clone")
+
+
+def prepare_repo(root: Path, repo: RepoConfig) -> None:
+    """按来源准备仓库：远程克隆，本地初始化，已有Git原位登记。"""
+    if (repo.path / ".git").exists():
+        return
+    if repo.remote:
+        if repo.path.exists():
+            validate_repo_path_for_save(repo)
+        clone_repo(root, repo)
+        return
+    if repo.path.exists() and not repo.path.is_dir():
+        raise ValueError(f"本地仓库路径不是目录: {repo.path}")
+    proc = subprocess.run(
+        ["git", "init", "-b", repo.branch, str(repo.path)],
+        cwd=str(root), capture_output=True, text=True, encoding="utf-8",
+        errors="replace", **hidden_subprocess_kwargs(),
+    )
+    if proc.returncode:
+        raise RuntimeError(proc.stderr.strip() or "本地Git仓库初始化失败")
 
 
 def write_repos(config_path: Path, root: Path, repos: List[RepoConfig]) -> None:
@@ -527,7 +547,7 @@ def restore_ccswitch_backup(root: Path, ccswitch_root: Path, backup_path: Path) 
     managed_set = load_managed_targets(state_dir)
     existing_targets = existing_puppet_targets(ccswitch_root)
     if not managed_set and existing_targets:
-        managed_set = {t.name for t in existing_targets}
+        managed_set = {t.name for t in existing_targets if t.name.startswith("puppet-")}
 
     targets_to_remove = [t for t in existing_targets if t.name in managed_set or t.name in {s.name for s in sources}]
     ensure_safe_targets(targets_to_remove, ccswitch_root)
@@ -583,8 +603,11 @@ def restore_config_backup(root: Path, config_path: Path, backup_path: Path) -> D
     }
 
 
-def import_ccswitch(root: Path, config_path: Path, ccswitch_root: Path) -> Dict[str, object]:
+def import_ccswitch(root: Path, config_path: Path, ccswitch_root: Path,
+                    repo_id: Optional[str] = None) -> Dict[str, object]:
     repos = load_repos(config_path, root)
+    if repo_id:
+        repos = [find_repo(repos, repo_id)]
     skills, conflicts = collect_skills(repos)
     if conflicts:
         return conflict_result(root, conflicts)
@@ -602,10 +625,10 @@ def import_ccswitch(root: Path, config_path: Path, ccswitch_root: Path) -> Dict[
     state_dir = state_home(root)
     managed_set = load_managed_targets(state_dir)
     existing_targets = existing_puppet_targets(ccswitch_root)
-    if not managed_set and existing_targets:
-        managed_set = {t.name for t in existing_targets}
+    if not repo_id and not managed_set and existing_targets:
+        managed_set = {t.name for t in existing_targets if t.name.startswith("puppet-")}
 
-    targets_to_remove = [t for t in existing_targets if t.name in managed_set or t.name in skills]
+    targets_to_remove = [t for t in existing_targets if t.name in skills or (not repo_id and t.name in managed_set)]
     ensure_safe_targets(targets_to_remove, ccswitch_root)
     backup_path = backup_targets(ccswitch_root, targets_to_remove, root)
 
@@ -633,7 +656,7 @@ def import_ccswitch(root: Path, config_path: Path, ccswitch_root: Path) -> Dict[
         if staging_dir.exists():
             shutil.rmtree(str(staging_dir), ignore_errors=True)
 
-    save_managed_targets(state_dir, set(skills.keys()))
+    save_managed_targets(state_dir, managed_set | set(skills) if repo_id else set(skills))
     return import_success(root, ccswitch_root, copied, [], backup_path)
 
 
@@ -685,6 +708,11 @@ def repo_action(root: Path, config_path: Path, action: str, repo_id: str, messag
     repo = find_repo(load_repos(config_path, root), repo_id)
     if not repo.path.is_dir():
         raise FileNotFoundError(f"仓库目录不存在: {repo.path}")
+    if action in {"pull", "push"} and not repo.remote:
+        result = {"ok": True, "repo": repo_id, "action": action,
+                  "status": "local_only", "stdout": "纯本地仓库无需检查远程更新或上传", "stderr": ""}
+        append_log(root, f"repo-{action}", result)
+        return result
     if action == "pull":
         code, out, err = run_git(repo.path, ["pull", "--ff-only", "origin", repo.branch])
     elif action == "push":
@@ -766,9 +794,8 @@ def handle_repo_command(root: Path, config_path: Path, args: argparse.Namespace)
 def add_repo_from_cli(root: Path, config_path: Path, args: argparse.Namespace) -> Dict[str, object]:
     repo = repo_config_from_args(root, args)
     validate_repo_config(repo, load_repos(config_path, root))
+    prepare_repo(root, repo)
     validate_repo_path_for_save(repo)
-    if repo.remote and not repo.path.exists():
-        clone_repo(root, repo)
     return save_repo_config(root, config_path, repo)
 
 

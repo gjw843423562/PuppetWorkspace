@@ -5,6 +5,7 @@ Puppet Workspace 的导航页面布局。
 from __future__ import annotations
 
 from typing import Dict
+from pathlib import Path
 
 try:
     import tkinter as tk
@@ -34,9 +35,16 @@ def build_overview(app, parent: "ttk.Frame") -> None:
 
 
 def build_sync(app, parent: "ttk.Frame") -> None:
-    title(parent, "技能同步", "把启用仓库里的 Puppet 技能同步到 AI 可调用的位置。")
+    title(parent, "技能同步", "把启用仓库里的 Puppet / SC 技能同步到 Codex 可调用的位置。")
     actions = ttk.Frame(parent, style="App.TFrame")
     actions.pack(fill="x")
+    app.sync_repo_ids = {"全部启用仓库": None}
+    for repo in app.payload.get("repos", []):
+        if isinstance(repo, dict) and repo.get("enabled", True):
+            app.sync_repo_ids[f"{repo['label']} ({repo['id']})"] = repo["id"]
+    app.sync_repo_choice = tk.StringVar(value="全部启用仓库")
+    ttk.Label(actions, text="同步范围：").pack(side="left")
+    ttk.Combobox(actions, textvariable=app.sync_repo_choice, values=list(app.sync_repo_ids), state="readonly", width=26).pack(side="left", padx=(0, 8))
     action_button(actions, "同步到 AI", app.import_ccswitch, app.icon("sync"), True)
     action_button(actions, "检查状态", app.refresh, app.icon("refresh"))
     conflicts = app.payload.get("conflicts", {})
@@ -49,7 +57,7 @@ def build_sync(app, parent: "ttk.Frame") -> None:
 
 
 def build_repos(app, parent: "ttk.Frame") -> None:
-    title(parent, "技能仓库", "管理技能来源仓库。这里不删除你的仓库正文，只改工具配置。")
+    title(parent, "技能仓库", "新增支持本地Git或远程仓库；本地仓库无需远程地址，可直接初始化。")
     actions = ttk.Frame(parent, style="App.TFrame")
     actions.pack(fill="x")
     for label, command, icon_name in repo_actions(app).values():
@@ -68,8 +76,8 @@ def build_targets(app, parent: "ttk.Frame") -> None:
     title(parent, "AI 位置", "这些是技能被同步过去、供 AI 调用的位置。")
     box = panel(parent, "ccSwitch")
     ttk.Label(box, text=f"当前目标：{app.payload.get('ccswitch', '')}", style="PanelText.TLabel", wraplength=760).pack(anchor="w")
-    future = panel(parent, "后续可接入")
-    ttk.Label(future, text="Codex、Claude、Gemini 可以作为下一阶段的独立同步目标。", style="PanelText.TLabel").pack(anchor="w")
+    codex = panel(parent, "Codex")
+    ttk.Label(codex, text=f"技能入口：{Path.home() / '.codex' / 'skills'}\n同步时建立目录入口，正本保留在各技能仓库。", style="PanelText.TLabel").pack(anchor="w")
 
 
 def build_backups(app, parent: "ttk.Frame") -> None:

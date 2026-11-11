@@ -24,8 +24,9 @@ from puppet_workspace_core import (
     RepoConfig, WorkspaceSettings, alert_keys_from_payload, alert_text, clone_repo,
     delete_repo_config, find_repo, import_ccswitch, load_repos, repo_action,
     repo_summary, restore_backup, save_repo_config, save_settings, set_repo_enabled,
-    startup_status, validate_repo_config, validate_repo_path_for_save,
+    startup_status, validate_repo_config, validate_repo_path_for_save, prepare_repo,
 )
+from puppet_workspace_codex import sync_codex
 from puppet_workspace_support import disable_startup, enable_startup
 from puppet_workspace_view import friendly_repo_status, human_action_label
 
@@ -57,7 +58,8 @@ class WorkspaceActions:
             status = result.get("status", {})
             friendly, _ = friendly_repo_status(status if isinstance(status, dict) else {})
             changes = result.get("changes") or "没有未保存改动。"
-            return f"状态：{friendly}\n远程：{status.get('remote', '')}\n\n改动：\n{changes}"
+            remote = status.get("remote") or "未配置（纯本地仓库）"
+            return f"状态：{friendly}\n远程：{remote}\n\n改动：\n{changes}"
         except Exception as exc:
             return "".join(traceback.format_exception_only(type(exc), exc)).strip()
 
@@ -76,7 +78,9 @@ class WorkspaceActions:
         self.update_selected_summary()
 
     def import_ccswitch(self) -> None:
-        self.run_worker("正在同步到 AI", lambda: import_ccswitch(self.root_path, self.config_path, self.ccswitch_root))
+        choice = getattr(self, "sync_repo_choice", None)
+        repo_id = getattr(self, "sync_repo_ids", {}).get(choice.get()) if choice else None
+        self.run_worker("正在同步到 Codex", lambda: sync_codex(self.root_path, self.config_path, self.ccswitch_root, repo_id=repo_id))
 
     def repo_op(self, action: str) -> None:
         try:
@@ -120,12 +124,22 @@ class WorkspaceActions:
             return None
         label = simpledialog.askstring("仓库名称", "显示名称：", initialvalue=repo.label if repo else repo_id)
         branch = simpledialog.askstring("分支", "默认分支：", initialvalue=repo.branch if repo else "main")
-        remote = simpledialog.askstring("远程地址", "remote URL：", initialvalue=repo.remote if repo else "")
+        remote = self.ask_repo_remote(repo)
         path = self.ask_repo_path(repo_id, repo.path if repo else None)
         if not label or not branch or remote is None or path is None:
             return None
         enabled = True if repo is None else repo.enabled
         return RepoConfig(repo_id.strip(), label.strip(), path, remote.strip(), branch.strip(), enabled)
+
+    def ask_repo_remote(self, repo: Optional[RepoConfig]) -> Optional[str]:
+        if repo is not None:
+            return simpledialog.askstring("仓库来源", "远程URL（纯本地仓库留空）：", initialvalue=repo.remote)
+        local = messagebox.askyesnocancel("仓库来源", "创建或登记纯本地Git仓库？\n是：无需远程地址，可初始化新目录\n否：填写远程地址并克隆或登记")
+        if local is None:
+            return None
+        if local:
+            return ""
+        return simpledialog.askstring("远程仓库", "remote URL：") or None
 
     def ask_repo_path(self, repo_id: str, current: Optional[Path]) -> Optional[Path]:
         if filedialog is None:
@@ -135,9 +149,8 @@ class WorkspaceActions:
 
     def save_and_maybe_clone(self, repo: RepoConfig, old_id: Optional[str]) -> Dict[str, object]:
         validate_repo_config(repo, load_repos(self.config_path, self.root_path), old_id)
+        prepare_repo(self.root_path, repo)
         validate_repo_path_for_save(repo)
-        if repo.remote and not repo.path.exists():
-            clone_repo(self.root_path, repo)
         return save_repo_config(self.root_path, self.config_path, repo, old_id)
 
     def toggle_repo_enabled(self) -> None:

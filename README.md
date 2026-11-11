@@ -2,6 +2,23 @@
 
 puppet-workspace 是 Puppet 个人技能库与外层辅助工具包的总控仓库。它负责统一管理 Puppet 技能库、快捷小工具、配置文件、图标图片资源及相关文档。
 
+## 本地 Git 仓库与 Codex 同步（2026-11-10）
+
+“技能仓库→新增”可选择纯本地或远程来源。本地模式不要求远程地址：已有 Git 仓库原位登记，新目录或已有普通目录会初始化 Git，保留原文件；远程模式保持原克隆流程。纯本地仓库可保存改动，检查更新／上传提示无需远程操作。
+
+当前 `SC 公司技能（本地）` 位于 `skill-repos/sc/`，独立管理 `sc-html-replica` 与 `sc-html-playable-converter`，未设置远程。外层仓库仍忽略技能正文。
+
+“技能同步”支持选择全部或一个启用仓库，识别 `puppet-*` 和 `sc-*`。同步先校验来源与摘要，再更新 ccSwitch 镜像和 Codex 目录入口；遇到同名未知入口不覆盖，可选择仅同步所需仓库。命令行等价入口：
+
+```text
+tools/puppet_workspace.cmd repo add sc --label SC --path skill-repos/sc
+tools/puppet_workspace.cmd sync-codex --repo sc
+```
+
+省略 `--remote` 表示纯本地。已有仓库不重复新增。若本机 CMD 入口解析异常，使用已确认的Python解释器运行 `tools/puppet_workspace.py` 并传入相同参数；不能继续执行已失真的批处理。
+
+本次校验及使用边界见 [本地仓库与SC同步验收](docs/local-git-sc-sync.md)。
+
 ---
 
 ## 📁 目录结构

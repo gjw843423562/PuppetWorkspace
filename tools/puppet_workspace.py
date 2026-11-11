@@ -11,6 +11,7 @@ from typing import Optional, Sequence, Tuple
 
 from puppet_workspace_core import *  # noqa: F401,F403
 from puppet_workspace_app import PuppetWorkspaceApp
+from puppet_workspace_codex import sync_codex
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="puppet-workspace 管理工具")
@@ -22,6 +23,9 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("tray")
     subparsers.add_parser("status")
     subparsers.add_parser("import-ccswitch")
+    codex = subparsers.add_parser("sync-codex", help="同步Puppet/SC技能并更新Codex入口")
+    codex.add_argument("--codex-home", default=None, help="Codex技能目录，默认用户.codex/skills")
+    codex.add_argument("--repo", default=None, help="仅同步指定仓库，保留其他仓库及未托管技能")
     repo = subparsers.add_parser("repo")
     repo_sub = repo.add_subparsers(dest="repo_action", required=True)
     for action in ("pull", "commit", "push", "summary", "enable", "disable"):
@@ -33,7 +37,7 @@ def build_parser() -> argparse.ArgumentParser:
     add.add_argument("repo_id")
     add.add_argument("--label", default=None)
     add.add_argument("--path", default=None)
-    add.add_argument("--remote", default=None)
+    add.add_argument("--remote", default=None, help="远程URL；省略则登记或初始化纯本地Git仓库")
     add.add_argument("--branch", default="main")
     add.add_argument("--disabled", action="store_true")
     startup = subparsers.add_parser("startup")
@@ -65,6 +69,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 0
     if args.command == "import-ccswitch":
         result = import_ccswitch(root, config_path, ccswitch_root)
+        print_json(result)
+        return 0 if result.get("ok") else 1
+    if args.command == "sync-codex":
+        codex_root = Path(args.codex_home).absolute() if args.codex_home else None
+        result = sync_codex(root, config_path, ccswitch_root, codex_root, args.repo)
         print_json(result)
         return 0 if result.get("ok") else 1
     if args.command == "startup":

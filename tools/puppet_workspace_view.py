@@ -54,6 +54,8 @@ def friendly_repo_status(repo: Dict[str, object]) -> Tuple[str, str]:
         return "有本地提交未上传", "warn"
     if int(repo.get("dirty_count", 0) or 0) > 0:
         return "有未保存改动", "warn"
+    if repo.get("local_only"):
+        return "本地仓库，已保存", "ok"
     return "一切正常", "ok"
 
 
