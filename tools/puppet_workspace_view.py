@@ -28,6 +28,7 @@ NAV_ITEMS = [
     ("sync", "技能同步", "sync"),
     ("repos", "技能仓库", "repo"),
     ("targets", "AI 位置", "ai"),
+    ("tools", "快捷工具", "home"),
     ("backups", "备份恢复", "backup"),
     ("settings", "设置", "settings"),
     ("logs", "高级日志", "log"),

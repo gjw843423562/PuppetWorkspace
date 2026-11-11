@@ -11,6 +11,12 @@ __pycache__/
 **/__pycache__/
 *.pyc
 
+# 独立快捷键工具运行态与本机产物
+tools/快捷键工具/PuppetHotkeys.exe
+tools/快捷键工具/PuppetHotkeys/
+tools/快捷键工具/backups/
+tools/快捷键工具/logs/
+
 # 打包产物
 build/**
 dist/**

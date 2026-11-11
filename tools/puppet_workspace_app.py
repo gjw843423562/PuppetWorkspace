@@ -26,6 +26,7 @@ from puppet_workspace_pages import (
     build_sync, build_targets,
 )
 from puppet_workspace_tray import TrayController
+from puppet_workspace_tools import build_tools
 from puppet_workspace_view import NAV_ITEMS, friendly_repo_status
 from puppet_workspace_widgets import IconStore, clear, configure_theme, nav_button
 
@@ -103,6 +104,7 @@ class PuppetWorkspaceApp(WorkspaceActions):
             "overview": build_overview, "sync": build_sync, "repos": build_repos,
             "targets": build_targets, "backups": build_backups,
             "settings": build_settings, "logs": build_logs,
+            "tools": build_tools,
         }
         pages.get(self.current_page, build_overview)(self, self.content)
 

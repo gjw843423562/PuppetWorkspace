@@ -31,6 +31,11 @@ puppet-workspace/
 
 ## 🚀 启动方式
 
+启动修复已回写原主程序入口。当前快捷键运行文件为 `tools/快捷键工具/PuppetHotkeys/PuppetHotkeys.exe`（目录式免解包发布，保留 `_internal`）；Puppet 按钮会显示启动状态并直接唤醒已有窗口。外层同名 EXE 为此前单文件构建，以下历史路径说明以本段为准。
+
+- **Puppet 内快捷工具入口**：左侧“快捷工具”可启动独立快捷键程序、打开配置目录及查看[原理与优化方案](docs/hotkey-tool.md)。
+- **可维护快捷键新版**：`tools/快捷键工具/PuppetHotkeys.exe` 支持热键冲突提示、保存即时生效、原子保存与备份、重复启动唤醒。源码在 `tools/puppet_hotkey_*.py`，构建入口为 `python3 tools/build_hotkeys.py`；原 EXE 保留，首次使用新版请退出旧版以释放热键。
+
 - **快捷启动**：双击根目录下的 PuppetWorkspace.lnk 快捷方式。
 - **打包产物**：双击 dist\PuppetWorkspace.exe（直接启动，后台自动定位工作区）。
 - **命令行启动**：在终端运行 	ools\puppet_workspace.cmd ui。
@@ -40,6 +45,10 @@ puppet-workspace/
 ---
 
 ## 🛠️ 常见操作
+
+快捷键工具说明：前文 AutoHotKeyTool.exe 保留为旧版回退入口；当前新版为同目录 PuppetHotkeys.exe，也可从新版 Puppet 的“快捷工具”页启动。
+
+本轮更新版主程序为 `dist/PuppetWorkspace-updated.exe`（原主程序运行中无法覆盖）。从托盘退出旧 Puppet 后再打开此更新版；独立快捷键新版也可直接运行，无需先启动 Puppet。
 
 `at
 :: 查看仓库状态
