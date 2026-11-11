@@ -7,6 +7,9 @@ logs/**
 backups/**
 
 # Python 缓存
+/发布/
+/运行数据/
+
 __pycache__/
 **/__pycache__/
 *.pyc

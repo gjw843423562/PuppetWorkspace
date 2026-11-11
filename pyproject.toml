@@ -1,0 +1,13 @@
+[tool.ruff]
+target-version = "py38"
+line-length = 100
+src = ["源码"]
+extend-exclude = ["运行数据", "发布", "skill-repos"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+ignore = ["F403", "F405"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

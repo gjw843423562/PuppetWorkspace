@@ -1,91 +1,53 @@
-# Puppet 工具箱与技能库 (puppet-workspace)
+# Puppet 工具工作区
 
-puppet-workspace 是 Puppet 个人技能库与外层辅助工具包的总控仓库。它负责统一管理 Puppet 技能库、快捷小工具、配置文件、图标图片资源及相关文档。
+管理独立技能仓库，并提供可独立运行的 Windows 快捷键工具。现有 Python 3.8 环境保持兼容。
 
-## 本地 Git 仓库与 Codex 同步（2026-11-10）
+## 工具目录
 
-“技能仓库→新增”可选择纯本地或远程来源。本地模式不要求远程地址：已有 Git 仓库原位登记，新目录或已有普通目录会初始化 Git，保留原文件；远程模式保持原克隆流程。纯本地仓库可保存改动，检查更新／上传提示无需远程操作。
+| 工具 | 日常启动 | 配置 |
+| --- | --- | --- |
+| Puppet 工作区 | 根目录 `PuppetWorkspace.lnk`；正式程序 `发布/工作区/PuppetWorkspace.exe` | `配置/技能仓库.yaml`、`配置/工作区设置.yaml` |
+| 快捷键工具 | Puppet 左侧“快捷工具”→“启动快捷键工具”；正式程序 `发布/快捷键工具/PuppetHotkeys/PuppetHotkeys.exe` | `配置/快捷键工具.json` |
 
-当前 `SC 公司技能（本地）` 位于 `skill-repos/sc/`，独立管理 `sc-html-replica` 与 `sc-html-playable-converter`，未设置远程。外层仓库仍忽略技能正文。
+目录式快捷键发布依赖同级 `_internal`，更新时应更新完整发布目录。退出 Puppet 不影响快捷键工具。关闭窗口是否隐藏到托盘遵循现有设置；需要退出时使用托盘菜单。整理不会开启或关闭用户自启偏好。
 
-“技能同步”支持选择全部或一个启用仓库，识别 `puppet-*` 和 `sc-*`。同步先校验来源与摘要，再更新 ccSwitch 镜像和 Codex 目录入口；遇到同名未知入口不覆盖，可选择仅同步所需仓库。命令行等价入口：
+当前独立运行指不需要主窗口常驻；仍需保留工作区目录及 `配置/技能仓库.yaml` 定位标记、快捷键配置，暂不支持只拷走快捷键 EXE 目录作为便携版。
+
+根目录的两个 `启动*.cmd` 是源码入口，需要 Python 和依赖；日常使用建议直接使用上面的正式程序。旧 `tools/` 仅保留兼容转发入口。
+
+## 固定结构
 
 ```text
-tools/puppet_workspace.cmd repo add sc --label SC --path skill-repos/sc
-tools/puppet_workspace.cmd sync-codex --repo sc
+源码/          puppet_workspace、puppet_hotkeys、puppet_common
+配置/          用户持久配置
+资源/          图标、图片
+构建/          独立构建脚本、依赖、结构检查器
+发布/          工作区、快捷键工具（当前产物，不提交 Git）
+测试/          单元测试和隔离 EXE 验收
+文档/          开发规范、使用说明、历史记录
+运行数据/      状态、日志、备份、构建缓存、整理记录、历史归档
+skill-repos/   独立 Git 技能仓库，保持原位置
+tools/         旧入口兼容层
 ```
 
-省略 `--remote` 表示纯本地。已有仓库不重复新增。若本机 CMD 入口解析异常，使用已确认的Python解释器运行 `tools/puppet_workspace.py` 并传入相同参数；不能继续执行已失真的批处理。
+新增工具和目录必须遵守 [协作约束](AGENTS.md) 与 [开发规范](文档/开发规范.md)。人可读分类路径、文档、界面使用简体中文，Python 标识和生态标准名称使用英文。运行数据和发布产物不提交 Git。
 
-本次校验及使用边界见 [本地仓库与SC同步验收](docs/local-git-sc-sync.md)。
+## 开发与验收
 
----
+以下命令从仓库根目录执行；启动与构建脚本本身不依赖调用工作目录。`python3` 必须是 Python 3；本机 `python` 是旧版解释器，不使用。
 
-## 📁 目录结构
+```powershell
+python3 -m pip install -r 构建/requirements.txt
+python3 源码/启动工作区.py status
+python3 源码/启动快捷键工具.py --check
+python3 构建/check_structure.py
+python3 -m unittest discover -s 测试 -q
+python3 构建/build_workspace.py
+python3 构建/build_hotkeys.py
+python3 测试/smoke_workspace_exe.py
+python3 测试/smoke_hotkey_exe.py
+```
 
-`	ext
-puppet-workspace/
-├── PuppetWorkspace.lnk   # 快捷启动入口（指向 dist/PuppetWorkspace.exe）
-├── README.md             # 本说明文档
-├── assets/               # 资源目录
-│   ├── icons/            # 界面图标资源 (.png)
-│   └── images/           # 工作空间美化图片与背景素材
-├── config/               # 配置文件
-│   └── repos.yaml        # 技能仓库登记表
-├── dist/                 # 应用程序编译打包输出目录
-│   └── PuppetWorkspace.exe
-├── skill-repos/          # 本机技能仓库容器（各 Git 仓库独立管理）
-├── tools/                # 常用辅助工具与源码
-│   ├── 快捷键工具/       # 键盘全局快捷键调起工具 (AutoHotKeyTool + tools.json)
-│   ├── build_exe.cmd     # EXE 打包脚本
-│   └── puppet_workspace*.py # GUI 与核心功能源码
-├── state/                # 运行状态数据（Git 已忽略）
-├── logs/                 # 运行日志（Git 已忽略）
-└── backups/              # 配置与技能备份（Git 已忽略）
-`
+EXE 验收使用临时空配置，不启动用户七个真实目标。依赖暂未锁定，重建前需核对当前依赖环境；Ruff 配置已提供，未安装时不能声称 Ruff 检查通过。
 
----
-
-## 🚀 启动方式
-
-启动修复已回写原主程序入口。当前快捷键运行文件为 `tools/快捷键工具/PuppetHotkeys/PuppetHotkeys.exe`（目录式免解包发布，保留 `_internal`）；Puppet 按钮会显示启动状态并直接唤醒已有窗口。外层同名 EXE 为此前单文件构建，以下历史路径说明以本段为准。
-
-- **Puppet 内快捷工具入口**：左侧“快捷工具”可启动独立快捷键程序、打开配置目录及查看[原理与优化方案](docs/hotkey-tool.md)。
-- **可维护快捷键新版**：`tools/快捷键工具/PuppetHotkeys.exe` 支持热键冲突提示、保存即时生效、原子保存与备份、重复启动唤醒。源码在 `tools/puppet_hotkey_*.py`，构建入口为 `python3 tools/build_hotkeys.py`；原 EXE 保留，首次使用新版请退出旧版以释放热键。
-
-- **快捷启动**：双击根目录下的 PuppetWorkspace.lnk 快捷方式。
-- **打包产物**：双击 dist\PuppetWorkspace.exe（直接启动，后台自动定位工作区）。
-- **命令行启动**：在终端运行 	ools\puppet_workspace.cmd ui。
-- **控制台调试启动**：双击 	ools\puppet_workspace_ui.cmd（保留控制台，便于排查日志）。
-- **快捷键小工具**：进入 	ools\快捷键工具\ 运行 AutoHotKeyTool.exe，可通过全局热键迅速调起常用工具。
-
----
-
-## 🛠️ 常见操作
-
-快捷键工具说明：前文 AutoHotKeyTool.exe 保留为旧版回退入口；当前新版为同目录 PuppetHotkeys.exe，也可从新版 Puppet 的“快捷工具”页启动。
-
-本轮更新版主程序为 `dist/PuppetWorkspace-updated.exe`（原主程序运行中无法覆盖）。从托盘退出旧 Puppet 后再打开此更新版；独立快捷键新版也可直接运行，无需先启动 Puppet。
-
-`at
-:: 查看仓库状态
-tools\puppet_workspace.cmd status
-
-:: 同步技能到 AI (ccSwitch)
-tools\puppet_workspace.cmd import-ccswitch
-
-:: 管理与更新技能仓库
-tools\puppet_workspace.cmd repo summary work-vault
-tools\puppet_workspace.cmd repo pull work-vault
-tools\puppet_workspace.cmd repo push work-vault
-
-:: 重新编译打包 EXE
-tools\build_exe.cmd
-`
-
----
-
-## 🎨 界面与美化资源
-
-- **图标文件**：位于 ssets\icons\，工具会自动优先加载同名 PNG 图标。
-- **图片素材**：位于 ssets\images\，用于后续工作区视觉美化与背景更换。
+更多说明：[快捷键工具](文档/hotkey-tool.md)、[整理验收记录](文档/整理验收记录.md)、[约束评估与优化路线](文档/约束评估与优化路线.md)。历史文档原文保存在 `文档/历史记录/`，其中旧路径和早期限制仅作追溯，现行用法以本文件为准。

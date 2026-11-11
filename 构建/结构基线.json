@@ -1,0 +1,9 @@
+{
+  "源码/puppet_workspace/puppet_workspace_core.py": {
+    "lines": 795,
+    "long_functions": {
+      "524:restore_ccswitch_backup": 48,
+      "591:import_ccswitch": 55
+    }
+  }
+}
